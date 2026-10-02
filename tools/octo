@@ -71,7 +71,7 @@ def candidate_dirs():
 def is_octosense_hub(path):
     # GitHub's CLI is also called `hub`; ours prints this banner on `help`.
     try:
-        out = subprocess.run([str(path), "help"], capture_output=True, text=True, timeout=10)
+        out = subprocess.run([str(path), "help"], capture_output=True, text=True, encoding="utf-8", timeout=10)
     except (OSError, subprocess.TimeoutExpired):
         return False
     return "OctoSense app hub" in (out.stdout + out.stderr)
@@ -86,13 +86,15 @@ def find_binary(name, env_var):
         searched.append(f"${env_var}={p}")
         if p.is_file() and os.access(p, os.X_OK):
             return p, f"${env_var}", searched
+    names = (name, name + ".exe") if os.name == "nt" else (name,)
     for d in candidate_dirs():
-        p = d / name
-        searched.append(str(p))
-        if p.is_file() and os.access(p, os.X_OK):
-            if name == "hub" and not is_octosense_hub(p):
-                continue
-            return p, str(d), searched
+        for candidate in names:
+            p = d / candidate
+            searched.append(str(p))
+            if p.is_file() and os.access(p, os.X_OK):
+                if name == "hub" and not is_octosense_hub(p):
+                    continue
+                return p, str(d), searched
     on_path = shutil.which(name)
     searched.append(f"PATH ({name})")
     if on_path:
@@ -453,7 +455,7 @@ def cmd_check(args, extra):
     if signed:
         print("octo: the manifest is signed; not restamping (a restamp would invalidate the signature).")
     else:
-        r = subprocess.run([str(hub), "stamp", str(bundle)], capture_output=True, text=True)
+        r = subprocess.run([str(hub), "stamp", str(bundle)], capture_output=True, text=True, encoding="utf-8")
         if r.returncode != 0:
             print(r.stdout + r.stderr, end="")
             return r.returncode
